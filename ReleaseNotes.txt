@@ -2,6 +2,11 @@
 //  Synaptics DSX I2C Driver
 ///////////////////////////////////////////////////////////
 
+v1.20 Jun 20, 2013 scott.lin@tw.synaptics.com
+   - Add support for doing lockdown during re-flash
+   - Wrap #ifdef CONFIG_HAS_EARLYSUSPEND around early_suspend (struct early_suspend)
+   - Re-register number of fingers for TYPE_B_PROTOCOL after doing reset
+
 v1.19 May 13, 2013 scott.lin@tw.synaptics.com
    - Add support for using F54_ANALOG_CTRL88 to turn off CBC when reading test reports
    - Expose actual numbers of assigned Rx and Tx electrodes to user space through sysfs
