@@ -630,9 +630,9 @@ struct f54_control_12__13 {
 struct f54_control_14 {
 	union {
 		struct {
-				unsigned char rxs_on_xaxis:1;
-				unsigned char curve_comp_on_txs:1;
-				unsigned char f54_ctrl14_b2__7:6;
+			unsigned char rxs_on_xaxis:1;
+			unsigned char curve_comp_on_txs:1;
+			unsigned char f54_ctrl14_b2__7:6;
 		} __packed;
 		struct {
 			unsigned char data[1];
