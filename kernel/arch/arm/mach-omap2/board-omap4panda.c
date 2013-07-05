@@ -65,10 +65,14 @@
 #include "prm44xx.h"
 #include "pm.h"
 #include "resetreason.h"
-
+#include <plat/mcspi.h>
+#include <linux/spi/spi.h>
 #include <linux/input/synaptics_dsx.h>
-#define TM1940 (1)
-#define TM2448 (2)
+
+#define TM1940 (1)	// I2C interface
+#define TM2448 (2)	// I2C interface
+#define TM2704 (3)	// SPI interface
+
 #define SYNAPTICS_MODULE TM2448
 
 #define PANDA_RAMCONSOLE_START	(PLAT_PHYS_OFFSET + SZ_512M)
@@ -126,6 +130,8 @@ static struct i2c_board_info bus4_i2c_devices[] = {
 	},
 };
 
+static struct spi_board_info rmi4_spi_devices[] = {};
+
 #elif (SYNAPTICS_MODULE == TM1940)
 #define DSX_I2C_ADDR 0x20
 #define DSX_ATTN_GPIO 39
@@ -154,6 +160,50 @@ static struct i2c_board_info bus4_i2c_devices[] = {
 		.platform_data = &dsx_platformdata,
 	},
 };
+
+static struct spi_board_info rmi4_spi_devices[] = {};
+
+#else 	//TM2704 SPI interface module
+#define DSX_ATTN_GPIO 39
+#define DSX_ATTN_MUX_NAME "gpmc_ad15.gpio_39"
+#define DSX_RESET_GPIO -1
+#define SYNAPTICS_SPI_BUS 1
+#define SYNAPTICS_SPI_CS 0
+
+static unsigned char tm2704_cap_button_codes[] = {};
+
+static struct synaptics_dsx_cap_button_map tm2704_cap_button_map = {
+	.nbuttons = ARRAY_SIZE(tm2704_cap_button_codes),
+	.map = tm2704_cap_button_codes,
+};
+
+struct synaptics_dsx_spi_delay tm2704_spi_delay = {
+	.byte_delay = 20,
+	.block_delay = 20,
+};
+
+static struct synaptics_dsx_platform_data dsx_platformdata = {
+	.irq_flags = IRQF_TRIGGER_FALLING,
+	.irq_gpio = DSX_ATTN_GPIO,
+	.reset_delay_ms = 100,
+	.reset_gpio = DSX_RESET_GPIO,
+ 	.gpio_config = synaptics_gpio_setup,
+ 	.cap_button_map = &tm2704_cap_button_map,
+	.spi_delay = &tm2704_spi_delay,
+};
+
+static struct spi_board_info rmi4_spi_devices[] = {
+	{
+		.modalias = "synaptics_dsx_spi",
+		.bus_num = SYNAPTICS_SPI_BUS,
+		.chip_select = SYNAPTICS_SPI_CS,
+		.mode = SPI_MODE_3,
+		.max_speed_hz = 2 * 1000 * 1000,
+		.platform_data = &dsx_platformdata,
+	},
+};
+
+static struct i2c_board_info bus4_i2c_devices[] = {};
 #endif
 
 static int synaptics_gpio_setup(int gpio, bool configure)
@@ -649,6 +699,25 @@ static int __init omap4_panda_i2c_init(void)
 	return 0;
 }
 
+
+static void __init omap4_panda_spi_init(void)
+{
+	if(ARRAY_SIZE(rmi4_spi_devices)) {
+#ifdef DSX_ATTN_MUX_NAME
+		omap_mux_init_signal(DSX_ATTN_MUX_NAME, OMAP_PIN_INPUT_PULLUP);
+#endif
+#ifdef DSX_RESET_MUX_NAME
+		omap_mux_init_signal(DSX_RESET_MUX_NAME, OMAP_PIN_OUTPUT);
+#endif
+		omap_mux_init_signal("mcspi1_cs0", OMAP_PIN_OUTPUT);  //sub mcspi1_cs1 fpr cd1 etc.
+		omap_mux_init_signal("mcspi1_clk", OMAP_PIN_INPUT);
+		omap_mux_init_signal("mcspi1_somi", OMAP_PIN_INPUT_PULLUP);
+		omap_mux_init_signal("mcspi1_simo", OMAP_PIN_OUTPUT);
+		spi_register_board_info(rmi4_spi_devices, ARRAY_SIZE(rmi4_spi_devices));
+	}
+}
+
+
 #ifdef CONFIG_OMAP_MUX
 static struct omap_board_mux board_mux[] __initdata = {
 	/* WLAN IRQ - GPIO 53 */
@@ -965,6 +1034,7 @@ static void __init omap4_panda_init(void)
 	ramconsole_pdata.bootinfo = omap4_get_resetreason();
 	platform_device_register(&ramconsole_device);
 	omap4_panda_i2c_init();
+	omap4_panda_spi_init();
 	omap4_audio_conf();
 
 	if (cpu_is_omap4430())

@@ -2,6 +2,14 @@
 //  Synaptics DSX I2C Driver
 ///////////////////////////////////////////////////////////
 
+v1.20.1 Jul 04, 2013
+   - Abstract bus related code in synaptics_dsx_i2c.c/h and rename to synaptics_dsx_core.c/h.
+   - Add synaptics_dsx_i2c.c as I2C bus read/write abstraction layer.
+   - Add synaptics_dsx_spi.c as SPI bus read/write abstraction layer.
+   - Necessary modifications in synaptics_dsx_fw_update.c, synaptics_dsx_rmi_dev.c and synaptics_dsx_test_reporting.c due to bus abstraction.
+   - Fix SPI initialization issue in omap2_mcspi.c.
+   - Enable kernel SPI support in panda_defconfig.
+
 v1.20 Jun 20, 2013 scott.lin@tw.synaptics.com
    - Add support for doing lockdown during re-flash
    - Wrap #ifdef CONFIG_HAS_EARLYSUSPEND around early_suspend (struct early_suspend)
