@@ -2700,14 +2700,12 @@ static int synaptics_rmi4_set_input_dev(struct synaptics_rmi4_data *rmi4_data)
 	return 0;
 
 err_register_input:
-	input_free_device(rmi4_data->input_dev);
-
 err_query_device:
 	synaptics_rmi4_empty_fn_list(rmi4_data);
-
 #ifdef PROXIMITY
 	kfree(f51);
 #endif
+	input_free_device(rmi4_data->input_dev);
 
 err_input_device:
 	return retval;
