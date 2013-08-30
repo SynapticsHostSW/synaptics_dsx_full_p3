@@ -33,6 +33,7 @@
 
 #define DRIVER_NAME "synaptics_dsx_i2c"
 #define INPUT_PHYS_NAME "synaptics_dsx_i2c/input0"
+#define PROX_PHYS_NAME "synaptics_dsx_i2c/input1"
 
 #ifdef KERNEL_ABOVE_2_6_38
 #define PROXIMITY
@@ -63,7 +64,6 @@
 #define RPT_WY (1 << 7)
 #define RPT_DEFAULT (RPT_TYPE | RPT_X_LSB | RPT_X_MSB | RPT_Y_LSB | RPT_Y_MSB)
 
-#ifdef PROXIMITY
 #define F51_FINGER_TIMEOUT 50 /* ms */
 #define HOVER_Z_MAX (255)
 
@@ -97,7 +97,6 @@
 #define F51_DATA_4_SIZE (1)
 #define F51_DATA_5_SIZE (1)
 #define F51_DATA_6_SIZE (1)
-#endif
 
 #define EXP_FN_WORK_DELAY_MS 1000 /* ms */
 #define SYN_I2C_RETRY_TIMES 10
@@ -157,7 +156,6 @@ static int synaptics_rmi4_suspend(struct device *dev);
 
 static int synaptics_rmi4_resume(struct device *dev);
 
-#ifdef PROXIMITY
 static void synaptics_rmi4_f51_finger_timer(unsigned long data);
 
 static ssize_t synaptics_rmi4_f51_enables_show(struct device *dev,
@@ -171,7 +169,6 @@ static ssize_t synaptics_rmi4_f51_general_control_show(struct device *dev,
 
 static ssize_t synaptics_rmi4_f51_general_control_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
-#endif
 
 static ssize_t synaptics_rmi4_f01_reset_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
@@ -381,7 +378,6 @@ struct synaptics_rmi4_f1a_handle {
 	struct synaptics_rmi4_f1a_control button_control;
 };
 
-#ifdef PROXIMITY
 struct synaptics_rmi4_f51_query {
 	union {
 		struct {
@@ -427,7 +423,6 @@ struct synaptics_rmi4_f51_handle {
 	unsigned short general_control_addr;
 	struct synaptics_rmi4_data *rmi4_data;
 };
-#endif
 
 struct synaptics_rmi4_exp_fn {
 	enum exp_fn fn_type;
@@ -457,14 +452,12 @@ static struct device_attribute attrs[] = {
 			synaptics_rmi4_full_pm_cycle_show,
 			synaptics_rmi4_full_pm_cycle_store),
 #endif
-#ifdef PROXIMITY
 	__ATTR(proximity_enables, (S_IRUGO | S_IWUGO),
 			synaptics_rmi4_f51_enables_show,
 			synaptics_rmi4_f51_enables_store),
 	__ATTR(general_control, (S_IRUGO | S_IWUGO),
 			synaptics_rmi4_f51_general_control_show,
 			synaptics_rmi4_f51_general_control_store),
-#endif
 	__ATTR(reset, S_IWUGO,
 			synaptics_rmi4_show_error,
 			synaptics_rmi4_f01_reset_store),
@@ -485,9 +478,7 @@ static struct device_attribute attrs[] = {
 			synaptics_rmi4_suspend_store),
 };
 
-#ifdef PROXIMITY
 static struct synaptics_rmi4_f51_handle *f51;
-#endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static ssize_t synaptics_rmi4_full_pm_cycle_show(struct device *dev,
@@ -514,7 +505,6 @@ static ssize_t synaptics_rmi4_full_pm_cycle_store(struct device *dev,
 }
 #endif
 
-#ifdef PROXIMITY
 static ssize_t synaptics_rmi4_f51_enables_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -592,7 +582,6 @@ static ssize_t synaptics_rmi4_f51_general_control_store(struct device *dev,
 
 	return count;
 }
-#endif
 
 static ssize_t synaptics_rmi4_f01_reset_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
@@ -1321,7 +1310,6 @@ static void synaptics_rmi4_f1a_report(struct synaptics_rmi4_data *rmi4_data,
 	return;
 }
 
-#ifdef PROXIMITY
 static void synaptics_rmi4_f51_report(struct synaptics_rmi4_data *rmi4_data,
 		struct synaptics_rmi4_fn *fhandler)
 {
@@ -1356,26 +1344,18 @@ static void synaptics_rmi4_f51_report(struct synaptics_rmi4_data *rmi4_data,
 				(data->hover_finger_xy_0__3 >> 4);
 		z = HOVER_Z_MAX - data->hover_finger_z;
 
-#ifdef TYPE_B_PROTOCOL
-		input_mt_slot(rmi4_data->input_dev, 0);
-		input_mt_report_slot_state(rmi4_data->input_dev,
-				MT_TOOL_FINGER, 1);
-#endif
-		input_report_key(rmi4_data->input_dev,
+		input_report_key(rmi4_data->prox_dev,
 				BTN_TOUCH, 0);
-		input_report_key(rmi4_data->input_dev,
+		input_report_key(rmi4_data->prox_dev,
 				BTN_TOOL_FINGER, 1);
-		input_report_abs(rmi4_data->input_dev,
-				ABS_MT_POSITION_X, x);
-		input_report_abs(rmi4_data->input_dev,
-				ABS_MT_POSITION_Y, y);
-		input_report_abs(rmi4_data->input_dev,
-				ABS_MT_DISTANCE, z);
+		input_report_abs(rmi4_data->prox_dev,
+				ABS_X, x);
+		input_report_abs(rmi4_data->prox_dev,
+				ABS_Y, y);
+		input_report_abs(rmi4_data->prox_dev,
+				ABS_DISTANCE, z);
 
-#ifndef TYPE_B_PROTOCOL
-		input_mt_sync(rmi4_data->input_dev);
-#endif
-		input_sync(rmi4_data->input_dev);
+		input_sync(rmi4_data->prox_dev);
 
 		dev_dbg(&rmi4_data->i2c_client->dev,
 				"%s: Hover finger:\n"
@@ -1417,7 +1397,6 @@ static void synaptics_rmi4_f51_report(struct synaptics_rmi4_data *rmi4_data,
 
 	return;
 }
-#endif
 
  /**
  * synaptics_rmi4_report_touch()
@@ -1459,11 +1438,9 @@ static void synaptics_rmi4_report_touch(struct synaptics_rmi4_data *rmi4_data,
 	case SYNAPTICS_RMI4_F1A:
 		synaptics_rmi4_f1a_report(rmi4_data, fhandler);
 		break;
-#ifdef PROXIMITY
 	case SYNAPTICS_RMI4_F51:
 		synaptics_rmi4_f51_report(rmi4_data, fhandler);
 		break;
-#endif
 	default:
 		break;
 	}
@@ -2082,7 +2059,6 @@ error_exit:
 	return retval;
 }
 
-#ifdef PROXIMITY
 static int synaptics_rmi4_f51_set_enables(struct synaptics_rmi4_data *rmi4_data)
 {
 	int retval;
@@ -2169,7 +2145,6 @@ int synaptics_rmi4_proximity_enables(unsigned char enables)
 	return 0;
 }
 EXPORT_SYMBOL(synaptics_rmi4_proximity_enables);
-#endif
 
 static void synaptics_rmi4_empty_fn_list(struct synaptics_rmi4_data *rmi4_data)
 {
@@ -2195,6 +2170,9 @@ static void synaptics_rmi4_empty_fn_list(struct synaptics_rmi4_data *rmi4_data)
 		}
 	}
 	INIT_LIST_HEAD(&rmi->support_fn_list);
+
+	kfree(f51);
+	f51 = NULL;
 
 	return;
 }
@@ -2612,11 +2590,22 @@ static void synaptics_rmi4_set_params(struct synaptics_rmi4_data *rmi4_data)
 			ABS_MT_TOUCH_MINOR, 0,
 			rmi4_data->max_touch_width, 0, 0);
 #endif
-
 #ifdef TYPE_B_PROTOCOL
 	input_mt_init_slots(rmi4_data->input_dev,
 			rmi4_data->num_of_fingers);
 #endif
+
+	if (f51) {
+		input_set_abs_params(rmi4_data->prox_dev,
+				ABS_X, 0,
+				rmi4_data->sensor_max_x, 0, 0);
+		input_set_abs_params(rmi4_data->prox_dev,
+				ABS_Y, 0,
+				rmi4_data->sensor_max_y, 0, 0);
+		input_set_abs_params(rmi4_data->prox_dev,
+				ABS_DISTANCE, 0,
+				HOVER_Z_MAX, 0, 0);
+	}
 
 	f1a = NULL;
 	if (!list_empty(&rmi->support_fn_list)) {
@@ -2683,14 +2672,36 @@ static int synaptics_rmi4_set_input_dev(struct synaptics_rmi4_data *rmi4_data)
 		rmi4_data->sensor_max_y = temp;
 	}
 
-#ifdef PROXIMITY
-	setup_timer(&rmi4_data->f51_finger_timer,
-			synaptics_rmi4_f51_finger_timer,
-			(unsigned long)rmi4_data);
-	input_set_abs_params(rmi4_data->input_dev,
-			ABS_MT_DISTANCE, 0,
-			HOVER_Z_MAX, 0, 0);
+	if (f51) {
+		rmi4_data->prox_dev = input_allocate_device();
+		if (rmi4_data->prox_dev == NULL) {
+			dev_err(&rmi4_data->i2c_client->dev,
+					"%s: Failed to allocate proximity device\n",
+					__func__);
+			retval = -ENOMEM;
+			goto err_prox_device;
+		}
+
+		rmi4_data->prox_dev->name = DRIVER_NAME;
+		rmi4_data->prox_dev->phys = PROX_PHYS_NAME;
+		rmi4_data->prox_dev->id.product = SYNAPTICS_DSX_DRIVER_PRODUCT;
+		rmi4_data->prox_dev->id.version = SYNAPTICS_DSX_DRIVER_VERSION;
+		rmi4_data->prox_dev->id.bustype = BUS_I2C;
+		rmi4_data->prox_dev->dev.parent = &rmi4_data->i2c_client->dev;
+		input_set_drvdata(rmi4_data->prox_dev, rmi4_data);
+
+		set_bit(EV_KEY, rmi4_data->prox_dev->evbit);
+		set_bit(EV_ABS, rmi4_data->prox_dev->evbit);
+		set_bit(BTN_TOUCH, rmi4_data->prox_dev->keybit);
+		set_bit(BTN_TOOL_FINGER, rmi4_data->prox_dev->keybit);
+#ifdef INPUT_PROP_DIRECT
+		set_bit(INPUT_PROP_DIRECT, rmi4_data->prox_dev->propbit);
 #endif
+
+		setup_timer(&rmi4_data->f51_finger_timer,
+				synaptics_rmi4_f51_finger_timer,
+				(unsigned long)rmi4_data);
+	}
 
 	synaptics_rmi4_set_params(rmi4_data);
 
@@ -2702,14 +2713,28 @@ static int synaptics_rmi4_set_input_dev(struct synaptics_rmi4_data *rmi4_data)
 		goto err_register_input;
 	}
 
+	if (f51) {
+		retval = input_register_device(rmi4_data->prox_dev);
+		if (retval) {
+			dev_err(&rmi4_data->i2c_client->dev,
+					"%s: Failed to register proximity device\n",
+					__func__);
+			goto err_register_prox;
+		}
+	}
+
 	return 0;
 
+err_register_prox:
+	input_unregister_device(rmi4_data->input_dev);
+
 err_register_input:
+	if (f51)
+		input_free_device(rmi4_data->prox_dev);
+
+err_prox_device:
 err_query_device:
 	synaptics_rmi4_empty_fn_list(rmi4_data);
-#ifdef PROXIMITY
-	kfree(f51);
-#endif
 	input_free_device(rmi4_data->input_dev);
 
 err_input_device:
@@ -2737,9 +2762,16 @@ static int synaptics_rmi4_free_fingers(struct synaptics_rmi4_data *rmi4_data)
 	input_sync(rmi4_data->input_dev);
 
 	rmi4_data->fingers_on_2d = false;
-#ifdef PROXIMITY
-	rmi4_data->f51_finger = false;
-#endif
+
+	if (f51) {
+		input_report_key(rmi4_data->prox_dev,
+				BTN_TOUCH, 0);
+		input_report_key(rmi4_data->prox_dev,
+				BTN_TOOL_FINGER, 0);
+		input_sync(rmi4_data->prox_dev);
+
+		rmi4_data->f51_finger = false;
+	}
 
 	return 0;
 }
@@ -2767,11 +2799,11 @@ static int synaptics_rmi4_reinit_device(struct synaptics_rmi4_data *rmi4_data)
 		}
 	}
 
-#ifdef PROXIMITY
-	retval = synaptics_rmi4_f51_set_enables(rmi4_data);
-	if (retval < 0)
-		goto exit;
-#endif
+	if (f51) {
+		retval = synaptics_rmi4_f51_set_enables(rmi4_data);
+		if (retval < 0)
+			goto exit;
+	}
 
 	for (ii = 0; ii < rmi4_data->num_of_intr_regs; ii++) {
 		if (rmi4_data->intr_mask[ii] != 0x00) {
@@ -2862,7 +2894,6 @@ static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data,
 	return 0;
 }
 
-#ifdef PROXIMITY
 static void synaptics_rmi4_f51_finger_timer(unsigned long data)
 {
 	struct synaptics_rmi4_data *rmi4_data =
@@ -2872,25 +2903,16 @@ static void synaptics_rmi4_f51_finger_timer(unsigned long data)
 		rmi4_data->f51_finger = false;
 		mod_timer(&rmi4_data->f51_finger_timer,
 				jiffies + msecs_to_jiffies(F51_FINGER_TIMEOUT));
-	} else if (!rmi4_data->fingers_on_2d) {
-#ifdef TYPE_B_PROTOCOL
-		input_mt_slot(rmi4_data->input_dev, 0);
-		input_mt_report_slot_state(rmi4_data->input_dev,
-				MT_TOOL_FINGER, 0);
-#endif
-		input_report_key(rmi4_data->input_dev,
+	} else {
+		input_report_key(rmi4_data->prox_dev,
 				BTN_TOUCH, 0);
-		input_report_key(rmi4_data->input_dev,
+		input_report_key(rmi4_data->prox_dev,
 				BTN_TOOL_FINGER, 0);
-#ifndef TYPE_B_PROTOCOL
-		input_mt_sync(rmi4_data->input_dev);
-#endif
-		input_sync(rmi4_data->input_dev);
+		input_sync(rmi4_data->prox_dev);
 	}
 
 	return;
 }
-#endif
 
 /**
 * synaptics_rmi4_exp_fn_work()
@@ -3167,17 +3189,15 @@ err_gpio_reset:
 		platform_data->gpio_config(platform_data->irq_gpio, false);
 
 err_gpio_attn:
-	synaptics_rmi4_empty_fn_list(rmi4_data);
-
-#ifdef PROXIMITY
-	kfree(f51);
-#endif
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&rmi4_data->early_suspend);
 #endif
 	input_unregister_device(rmi4_data->input_dev);
+	if (f51)
+		input_unregister_device(rmi4_data->prox_dev);
 	rmi4_data->input_dev = NULL;
+	rmi4_data->prox_dev = NULL;
+	synaptics_rmi4_empty_fn_list(rmi4_data);
 
 err_set_input_dev:
 	if (platform_data->regulator_en) {
@@ -3231,16 +3251,14 @@ static int __devexit synaptics_rmi4_remove(struct i2c_client *client)
 	flush_workqueue(exp_data.workqueue);
 	destroy_workqueue(exp_data.workqueue);
 
-	synaptics_rmi4_empty_fn_list(rmi4_data);
-
-#ifdef PROXIMITY
-	kfree(f51);
-#endif
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&rmi4_data->early_suspend);
 #endif
 	input_unregister_device(rmi4_data->input_dev);
+	if (f51)
+		input_unregister_device(rmi4_data->prox_dev);
+
+	synaptics_rmi4_empty_fn_list(rmi4_data);
 
 	if (platform_data->regulator_en) {
 		regulator_disable(rmi4_data->regulator);
