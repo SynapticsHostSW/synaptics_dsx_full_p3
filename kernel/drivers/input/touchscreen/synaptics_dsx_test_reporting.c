@@ -1031,6 +1031,7 @@ show_store_prototype(fifoindex)
 store_prototype(do_preparation)
 store_prototype(get_report)
 store_prototype(force_cal)
+store_prototype(resume_touch)
 show_prototype(num_of_mapped_rx)
 show_prototype(num_of_mapped_tx)
 show_prototype(num_of_rx_electrodes)
@@ -1124,6 +1125,7 @@ static struct attribute *attrs[] = {
 	attrify(do_preparation),
 	attrify(get_report),
 	attrify(force_cal),
+	attrify(resume_touch),
 	attrify(num_of_mapped_rx),
 	attrify(num_of_mapped_tx),
 	attrify(num_of_rx_electrodes),
@@ -2155,7 +2157,7 @@ static ssize_t synaptics_rmi4_f54_force_cal_store(struct device *dev,
 		return retval;
 
 	if (setting != 1)
-		return count;
+		return -EINVAL;
 
 	command = (unsigned char)COMMAND_FORCE_CAL;
 
@@ -2172,6 +2174,24 @@ static ssize_t synaptics_rmi4_f54_force_cal_store(struct device *dev,
 				__func__);
 		return retval;
 	}
+
+	return count;
+}
+
+static ssize_t synaptics_rmi4_f54_resume_touch_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int retval;
+	unsigned long setting;
+
+	retval = sstrtoul(buf, 10, &setting);
+	if (retval)
+		return retval;
+
+	if (setting != 1)
+		return -EINVAL;
+
+	set_interrupt(false);
 
 	return count;
 }
@@ -2366,8 +2386,8 @@ static int synaptics_rmi4_f54_set_sysfs(void)
 			&rmi4_data->input_dev->dev.kobj);
 	if (!f54->attr_dir) {
 		dev_err(&rmi4_data->i2c_client->dev,
-			"%s: Failed to create sysfs directory\n",
-			__func__);
+				"%s: Failed to create sysfs directory\n",
+				__func__);
 		goto exit_1;
 	}
 
@@ -3020,7 +3040,6 @@ static void synaptics_rmi4_f54_status_work(struct work_struct *work)
 
 error_exit:
 	mutex_lock(&f54->status_mutex);
-	set_interrupt(false);
 	f54->status = retval;
 	mutex_unlock(&f54->status_mutex);
 
