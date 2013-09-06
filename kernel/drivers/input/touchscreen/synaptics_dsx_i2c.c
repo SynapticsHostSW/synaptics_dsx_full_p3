@@ -137,8 +137,7 @@ static int synaptics_rmi4_f12_set_enables(struct synaptics_rmi4_data *rmi4_data,
 
 static int synaptics_rmi4_free_fingers(struct synaptics_rmi4_data *rmi4_data);
 static int synaptics_rmi4_reinit_device(struct synaptics_rmi4_data *rmi4_data);
-static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data,
-		unsigned short f01_cmd_base_addr);
+static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static ssize_t synaptics_rmi4_full_pm_cycle_show(struct device *dev,
@@ -587,11 +586,8 @@ static ssize_t synaptics_rmi4_f01_reset_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	int retval;
-	unsigned short f01_cmd_base_addr;
 	unsigned int reset;
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
-
-	f01_cmd_base_addr = rmi4_data->f01_cmd_base_addr;
 
 	if (sscanf(buf, "%u", &reset) != 1)
 		return -EINVAL;
@@ -599,7 +595,7 @@ static ssize_t synaptics_rmi4_f01_reset_store(struct device *dev,
 	if (reset != 1)
 		return -EINVAL;
 
-	retval = synaptics_rmi4_reset_device(rmi4_data, f01_cmd_base_addr);
+	retval = synaptics_rmi4_reset_device(rmi4_data);
 	if (retval < 0) {
 		dev_err(dev,
 				"%s: Failed to issue reset command, error = %d\n",
@@ -2905,8 +2901,7 @@ exit:
 	return retval;
 }
 
-static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data,
-		unsigned short f01_cmd_base_addr)
+static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data)
 {
 	int retval;
 	int temp;
